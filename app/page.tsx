@@ -1,7 +1,7 @@
 'use client'
 import React from "react";
 import { useState, useEffect } from "react";
-import { collection, addDoc, getDocs, query, onSnapshot, deleteDoc, doc, updateDoc, where } from "firebase/firestore"; 
+import { collection, addDoc, getDocs, query, onSnapshot, deleteDoc, doc, updateDoc, where, Firestore } from "firebase/firestore"; 
 import { db } from "./firebase";
 import "./globals.css";
 import axios from "axios";
@@ -20,18 +20,20 @@ export default function Home() {
   // Add item to database
   const addItem = async (e: React.FormEvent) => {
     e.preventDefault();
-
+  
+    if (!db) return;
+  
     const itemName = newItem.name.trim();
     const itemNameLower = itemName.toLowerCase();
     const numericItems = Number(newItem.items);
-
+  
     try {
       const existingItemRef = query(
         collection(db, 'items'),
         where('nameLower', '==', itemNameLower)
       );
       const snapshot = await getDocs(existingItemRef);
-
+  
       if (snapshot.empty) {
         await addDoc(collection(db, 'items'), {
           name: itemName,
@@ -42,12 +44,12 @@ export default function Home() {
         const existingDoc = snapshot.docs[0];
         const existingData = existingDoc.data() as Item;
         const existingItems = existingData.items || 0;
-
+  
         await updateDoc(existingDoc.ref, {
           items: existingItems + numericItems,
         });
       }
-
+  
       setNewItem({ name: '', nameLower: '', items: null });
     } catch (error) {
       console.error('Error adding item to Firebase:', error);
@@ -56,19 +58,22 @@ export default function Home() {
 
   // Read items from database
   useEffect(() => {
-    const q = query(collection(db, 'items'))
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      let itemsArr: Item[] = []
-      querySnapshot.forEach((doc) => {
-        itemsArr.push({...doc.data(), id: doc.id} as Item)
+    if (db) {
+      const q = query(collection(db, 'items'))
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        let itemsArr: Item[] = []
+        querySnapshot.forEach((doc) => {
+          itemsArr.push({...doc.data(), id: doc.id} as Item)
+        })
+        setItems(itemsArr)
       })
-      setItems(itemsArr)
-    })
-    return () => unsubscribe();
+      return () => unsubscribe();
+    }
   }, [])
 
   // Delete item from database
   const deleteItem = async (id: string) => {
+    if (!db) return;
     await deleteDoc(doc(db, 'items', id));
   }
 
